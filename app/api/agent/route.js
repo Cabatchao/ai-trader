@@ -5,39 +5,42 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 export async function POST(req) {
   try {
-    // On récupère le profil que l'utilisateur a tapé dans le formulaire
-    const { capital, horizon, risque, objectif } = await req.json();
+    // On récupère le profil et la NOUVELLE variable "typeActif"
+    const { capital, horizon, risque, objectif, typeActif } = await req.json();
 
     const perteMaxEuros = (capital * risque) / 100;
 
-    // Le Super-Prompt dynamique
+    // Le Super-Prompt avec la nouvelle règle sur le Type d'Actif
     const prompt = `
       Tu es un gestionnaire de Hedge Fund IA composé de 3 agents institutionnels (McKinsey, Goldman Sachs, Bridgewater).
       
       PROFIL DE L'INVESTISSEUR :
       - Capital total disponible : ${capital} €
-      - Horizon d'investissement visé : ${horizon}
+      - Horizon d'investissement : ${horizon}
       - Objectif financier : ${objectif}
-      - Tolérance au risque : Perte stricte maximale de ${risque}% par trade (soit ${perteMaxEuros} € maximum de perte si le trade échoue).
+      - Tolérance au risque : Perte stricte maximale de ${risque}% par trade (soit ${perteMaxEuros} € maximum).
+      - UNIVERS D'INVESTISSEMENT CIBLÉ : ${typeActif}
 
       TA MISSION OBLIGATOIRE EN 3 ÉTAPES :
       
       1. ANALYSE MACRO (Façon McKinsey)
-      Fais un point ultra-rapide sur le contexte économique actuel. Dis-moi quels sont les 2 secteurs d'activité qui vont surperformer sur mon horizon de temps (${horizon}).
+      Fais un point ultra-rapide sur l'économie. Quel est le contexte actuel pour la catégorie "${typeActif}" ?
 
-      2. SÉLECTION D'ACTIONS (Façon Goldman Sachs)
-      Ne me demande pas quelle action analyser. C'est À TOI de chercher et de me SUGGÉRER 3 actions (Tickers) précises qui sont parfaites pour mon horizon de temps et la macro actuelle. Choisi des actifs liquides.
+      2. SÉLECTION D'ACTIFS (Façon Goldman Sachs)
+      RÈGLE D'OR : Tu dois me suggérer 3 actifs qui appartiennent STRICTEMENT à la catégorie "${typeActif}". 
+      (Si l'utilisateur a choisi "Tout sélectionner", fais un mix intelligent entre Actions, ETF, Crypto ou Matières Premières).
+      Choisis des actifs avec une forte liquidité.
 
       3. RISK MANAGEMENT (Façon Bridgewater)
-      Pour chacune des 3 actions suggérées, tu dois me faire un plan d'action STRICT :
-      - Nom de l'entreprise et Ticker.
-      - Pourquoi ce choix correspond à mon profil.
-      - Zone de Prix d'Entrée idéal.
+      Pour chacun des 3 actifs suggérés, tu dois me faire un plan d'action STRICT :
+      - Nom de l'actif et Ticker (ex: AAPL, BTC, GLD).
+      - Pourquoi ce choix correspond à mon objectif (${objectif}).
+      - Zone de Prix d'Entrée idéal actuel.
       - Objectif de Revente (Take Profit).
       - Niveau de Stop-Loss (Prix d'invalidation).
-      - POSITION SIZING OBLIGATOIRE : Dis-moi EXACTEMENT combien d'actions je dois acheter. Calcule-le pour que si le Stop-Loss est touché, ma perte ne dépasse JAMAIS les ${perteMaxEuros} € autorisés.
+      - POSITION SIZING OBLIGATOIRE : Dis-moi EXACTEMENT combien de pièces/actions je dois acheter. Calcule-le pour que si le Stop-Loss est touché, la perte ne dépasse JAMAIS les ${perteMaxEuros} € autorisés.
 
-      Mets des titres clairs, des emojis, et sois tranchant comme un vrai trader pro de Wall Street. Ne fais pas de blabla inutile.
+      Mets des titres clairs, des emojis, et sois tranchant. Ne fais pas de blabla inutile.
     `;
 
     const chatCompletion = await groq.chat.completions.create({
