@@ -5,42 +5,49 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 export async function POST(req) {
   try {
-    // On récupère le profil et la NOUVELLE variable "typeActif"
     const { capital, horizon, risque, objectif, typeActif } = await req.json();
 
-    const perteMaxEuros = (capital * risque) / 100;
+    const perteMaxEuros = ((capital * risque) / 100).toFixed(2);
+    // On force l'IA à diviser le budget pour les 3 actions recommandées
+    const budgetParActif = (capital / 3).toFixed(2); 
 
-    // Le Super-Prompt avec la nouvelle règle sur le Type d'Actif
     const prompt = `
       Tu es un gestionnaire de Hedge Fund IA composé de 3 agents institutionnels (McKinsey, Goldman Sachs, Bridgewater).
       
       PROFIL DE L'INVESTISSEUR :
       - Capital total disponible : ${capital} €
+      - Budget maximum alloué par actif : environ ${budgetParActif} € (car on divise le capital sur 3 positions).
       - Horizon d'investissement : ${horizon}
       - Objectif financier : ${objectif}
       - Tolérance au risque : Perte stricte maximale de ${risque}% par trade (soit ${perteMaxEuros} € maximum).
       - UNIVERS D'INVESTISSEMENT CIBLÉ : ${typeActif}
 
-      TA MISSION OBLIGATOIRE EN 3 ÉTAPES :
+      CONTRAINTES DE BUDGET OBLIGATOIRES (INTERDICTION ABSOLUE DE LES ENFREINDRE) :
+      1. Le prix actuel d'une seule unité de l'actif (1 action ou 1 ETF) DOIT IMPÉRATIVEMENT être inférieur au capital total de ${capital} €. 
+      2. Idéalement, le prix unitaire doit même être inférieur à ${budgetParActif} € pour pouvoir diversifier. 
+      3. Si l'utilisateur a 100€, NE LUI PROPOSE JAMAIS une action classique qui coûte 150€ l'unité ! Dans ce cas, cherche des actions "abordables" (Small/Mid caps, Penny stocks) ou précise que l'achat se fait via des "fractions d'actions" (si le courtier le permet) ou des cryptos divisibles.
+      4. Le montant total investi sur une seule position (Quantité d'actions multipliée par le Prix unitaire) ne doit JAMAIS dépasser ${capital} €.
+
+      TA MISSION EN 3 ÉTAPES :
       
       1. ANALYSE MACRO (Façon McKinsey)
-      Fais un point ultra-rapide sur l'économie. Quel est le contexte actuel pour la catégorie "${typeActif}" ?
+      Contexte actuel pour la catégorie "${typeActif}".
 
       2. SÉLECTION D'ACTIFS (Façon Goldman Sachs)
-      RÈGLE D'OR : Tu dois me suggérer 3 actifs qui appartiennent STRICTEMENT à la catégorie "${typeActif}". 
-      (Si l'utilisateur a choisi "Tout sélectionner", fais un mix intelligent entre Actions, ETF, Crypto ou Matières Premières).
-      Choisis des actifs avec une forte liquidité.
+      Suggère 3 actifs de la catégorie "${typeActif}". 
+      RAPPEL : Leurs prix unitaires DOIVENT ÊTRE COMPATIBLES avec le budget de l'utilisateur !
 
       3. RISK MANAGEMENT (Façon Bridgewater)
-      Pour chacun des 3 actifs suggérés, tu dois me faire un plan d'action STRICT :
-      - Nom de l'actif et Ticker (ex: AAPL, BTC, GLD).
-      - Pourquoi ce choix correspond à mon objectif (${objectif}).
-      - Zone de Prix d'Entrée idéal actuel.
+      Pour chacun des 3 actifs, donne un plan d'action STRICT :
+      - Nom et Ticker.
+      - Zone de Prix d'Entrée actuel exact (Prouve-moi que ce prix est inférieur à ${capital} €).
       - Objectif de Revente (Take Profit).
-      - Niveau de Stop-Loss (Prix d'invalidation).
-      - POSITION SIZING OBLIGATOIRE : Dis-moi EXACTEMENT combien de pièces/actions je dois acheter. Calcule-le pour que si le Stop-Loss est touché, la perte ne dépasse JAMAIS les ${perteMaxEuros} € autorisés.
-
-      Mets des titres clairs, des emojis, et sois tranchant. Ne fais pas de blabla inutile.
+      - Niveau de Stop-Loss.
+      - POSITION SIZING MATHÉMATIQUE (Obligatoire) : 
+         * Formule : Quantité = ${perteMaxEuros} € / (Prix d'Entrée - Prix Stop-Loss).
+         * Dis-moi exactement le NOMBRE d'unités à acheter.
+         * Dis-moi le MONTANT TOTAL INVESTI (= Quantité * Prix d'Entrée). Ce montant doit être < ${capital} €.
+         * Valide en écrivant : "Vérification du risque : Si le stop est touché, la perte sera de ${perteMaxEuros} €".
     `;
 
     const chatCompletion = await groq.chat.completions.create({
