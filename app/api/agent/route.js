@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import Groq from 'groq-sdk';
 import YahooFinance from 'yahoo-finance2';
 
-// Initialisation des outils (C'est ici que se trouve la correction !)
 const yahooFinance = new YahooFinance();
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -33,10 +32,10 @@ export async function POST(req) {
       Sois précis, professionnel, et direct.
     `;
 
-    // 3. Appel à Llama-3 (Groq)
+    // 3. Appel à l'IA Groq (avec le NOUVEAU modèle à jour !)
     const chatCompletion = await groq.chat.completions.create({
       messages:[{ role: 'user', content: prompt }],
-      model: 'llama3-70b-8192',
+      model: 'llama-3.3-70b-versatile',
     });
 
     const reponseIA = chatCompletion.choices[0]?.message?.content;
