@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import Groq from 'groq-sdk';
-import yahooFinance from 'yahoo-finance2';
+import YahooFinance from 'yahoo-finance2';
 
-// Connexion à l'IA gratuite
+// Initialisation des outils (C'est ici que se trouve la correction !)
+const yahooFinance = new YahooFinance();
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 export async function POST(req) {
