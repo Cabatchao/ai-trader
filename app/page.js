@@ -94,5 +94,14 @@ export default function Home() {
         </div>
       )}
     </div>
-  );
+<button 
+        onClick={async () => {
+          setResult("Le Superviseur IA analyse ses anciens trades... 🧠");
+          const res = await fetch('/api/evaluate');
+          const data = await res.json();
+          setResult(data.message);
+        }} 
+        style={{ width: '100%', padding: '15px', marginTop: '20px', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', backgroundColor: '#8a2be2', color: 'white', border: 'none', borderRadius: '5px' }}>
+        🧠 Lancer l'Apprentissage (Deep Learning)
+      </button>  );
 }
