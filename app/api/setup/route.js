@@ -1,9 +1,12 @@
 import { sql } from '@vercel/postgres';
 import { NextResponse } from 'next/server';
 
+// 🛑 LA LIGNE MAGIQUE QUI CASSE LE CACHE (OBLIGATOIRE)
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
-    // Ce code va forcer la création de la table de mémoire
+    // Ordre de création de la table
     await sql`
       CREATE TABLE IF NOT EXISTS journal_trading (
           id SERIAL PRIMARY KEY,
@@ -14,13 +17,15 @@ export async function GET() {
           lecon_apprise TEXT
       );
     `;
+    
     return NextResponse.json({ 
-     message: "🚀 BINGO ! La connexion est réussie et la mémoire est créée !"
+      message: "🚀 BINGO ! Le cache est vidé, la connexion est réussie et la mémoire est créée !" 
     }, { status: 200 });
     
   } catch (error) {
     return NextResponse.json({ 
-      erreur: "Aïe, il y a eu un problème : " + error.message 
+      erreur: "Erreur en direct : " + error.message,
+      astuce: "La base de données était peut-être endormie. Rafraîchis la page (F5) dans 10 secondes !"
     }, { status: 500 });
   }
 }
