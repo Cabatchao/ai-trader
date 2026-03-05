@@ -15,7 +15,7 @@ export async function GET() {
       );
     `;
     return NextResponse.json({ 
-      message: "🎉 SUCCÈS TOTAL ! La table de mémoire a été créée parfaitement dans la base de données. Tu peux fermer cette page." 
+     message: "🚀 BINGO ! La connexion est réussie et la mémoire est créée !"
     }, { status: 200 });
     
   } catch (error) {
