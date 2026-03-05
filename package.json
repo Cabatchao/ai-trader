@@ -11,6 +11,7 @@
     "react": "latest",
     "react-dom": "latest",
     "groq-sdk": "latest",
-    "yahoo-finance2": "latest"
+    "yahoo-finance2": "latest",
+    "@vercel/postgres": "latest"
   }
 }
