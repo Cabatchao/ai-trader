@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import Groq from 'groq-sdk';
-import { sql } from '@vercel/postgres'; // L'outil qui connecte à ta mémoire !
+import yahooFinance from 'yahoo-finance2';
+import { sql } from '@vercel/postgres';
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -8,55 +9,72 @@ export async function POST(req) {
   try {
     const { capital, horizon, risque, objectif, typeActif } = await req.json();
 
+    // 1. 🧠 LECTURE DE LA MÉMOIRE (On récupère les erreurs du passé)
+    let leconsApprises = "Aucune leçon pour le moment.";
+    try {
+      const dbLecons = await sql`SELECT lecon_apprise FROM journal_trading WHERE lecon_apprise IS NOT NULL ORDER BY id DESC LIMIT 5`;
+      if (dbLecons.rows.length > 0) {
+        leconsApprises = dbLecons.rows.map(r => "- " + r.lecon_apprise).join("\n");
+      }
+    } catch (e) { console.log("Mémoire vide."); }
+
+    // 2. 🕵️‍♂️ L'IA CHOISIT D'ABORD LES BONS TICKERS
+    const promptTickers = `Tu es un expert financier. Donne-moi EXACTEMENT 3 symboles boursiers américains (Tickers) parfaits pour cet univers : ${typeActif} et horizon : ${horizon}.
+    RÉPONDS UNIQUEMENT PAR LES 3 TICKERS SÉPARÉS PAR DES VIRGULES, sans aucun autre mot. Ex: AAPL,MSFT,TSLA`;
+
+    const chat1 = await groq.chat.completions.create({
+      messages:[{ role: 'user', content: promptTickers }],
+      model: 'llama-3.3-70b-versatile',
+    });
+    const tickersBruts = chat1.choices[0]?.message?.content.trim();
+    const listeTickers = tickersBruts.split(',').map(t => t.trim().toUpperCase());
+
+    // 3. 📡 RÉCUPÉRATION DES VRAIS PRIX EN TEMPS RÉEL
+    let vraisPrix = "";
+    for (const ticker of listeTickers) {
+      try {
+        const quote = await yahooFinance.quote(ticker);
+        vraisPrix += `\n- ${ticker} : VRAI PRIX ACTUEL EN DIRECT = ${quote.regularMarketPrice} $`;
+      } catch (err) {
+        vraisPrix += `\n- ${ticker} : (Prix direct indisponible, utilise ta meilleure estimation).`;
+      }
+    }
+
+    // 4. 🧠 LE SUPER-PROMPT FINAL AVEC VRAIS PRIX ET MÉMOIRE
     const perteMaxEuros = ((capital * risque) / 100).toFixed(2);
-    const budgetParActif = (capital / 3).toFixed(2); 
 
-    const prompt = `
-      Tu es un gestionnaire de Hedge Fund IA composé de 3 agents institutionnels (McKinsey, Goldman Sachs, Bridgewater).
+    const promptFinal = `
+      Tu es un gestionnaire de Hedge Fund IA. Objectif de réussite : 85%.
       
-      PROFIL DE L'INVESTISSEUR :
-      - Capital total disponible : ${capital} €
-      - Budget maximum alloué par actif : environ ${budgetParActif} € (car on divise le capital sur 3 positions).
-      - Horizon d'investissement : ${horizon}
-      - Objectif financier : ${objectif}
-      - Tolérance au risque : Perte stricte maximale de ${risque}% par trade (soit ${perteMaxEuros} € maximum).
-      - UNIVERS D'INVESTISSEMENT CIBLÉ : ${typeActif}
+      ⚠️ TES RÈGLES D'APPRENTISSAGE (NE REFAIS JAMAIS CES ERREURS) :
+      ${leconsApprises}
 
-      CONTRAINTES DE BUDGET OBLIGATOIRES :
-      1. Le prix unitaire de l'actif DOIT être inférieur à ${capital} €. 
-      2. Le montant total investi sur une seule position ne doit JAMAIS dépasser ${capital} €.
+      PROFIL : Capital ${capital}€, Risque max ${perteMaxEuros}€, Horizon ${horizon}.
+      
+      📈 VRAIS PRIX DU MARCHÉ À LA SECONDE PRÈS :
+      ${vraisPrix}
 
-      TA MISSION EN 3 ÉTAPES :
-      1. ANALYSE MACRO (Façon McKinsey)
-      2. SÉLECTION D'ACTIFS (Façon Goldman Sachs) : Suggère 3 actifs de la catégorie "${typeActif}".
-      3. RISK MANAGEMENT (Façon Bridgewater) : Pour chaque actif, donne un plan STRICT (Entrée, Take Profit, Stop-Loss, et Quantité exacte à acheter).
-
-      Mets des titres clairs, des emojis, et sois tranchant.
+      MISSION :
+      Fais ton analyse McKinsey/Goldman/Bridgewater sur ces 3 actifs.
+      - Utilise OBLIGATOIREMENT les vrais prix que je viens de te donner pour calculer les entrées.
+      - Calcule la taille de position exacte pour que la perte au Stop-Loss ne dépasse jamais ${perteMaxEuros}€.
     `;
 
-    // 1. L'IA réfléchit et génère son rapport
-    const chatCompletion = await groq.chat.completions.create({
-      messages:[{ role: 'user', content: prompt }],
+    const chat2 = await groq.chat.completions.create({
+      messages:[{ role: 'user', content: promptFinal }],
       model: 'llama-3.3-70b-versatile',
     });
 
-    const reponseIA = chatCompletion.choices[0]?.message?.content;
+    const reponseIA = chat2.choices[0]?.message?.content;
 
-    // 2. 🧠 LA SAUVEGARDE DANS LA MÉMOIRE (DEEP LEARNING)
+    // 5. 💾 SAUVEGARDE DU TRADE POUR LE FUTUR JUGEMENT
     try {
-      // On insère l'analyse de l'IA dans la base de données Postgres
-      await sql`
-        INSERT INTO journal_trading (actif_propose, analyse_complete, statut)
-        VALUES (${typeActif}, ${reponseIA}, 'EN_COURS')
-      `;
-    } catch (dbError) {
-      console.log("Erreur de sauvegarde DB, mais on continue :", dbError);
-    }
+      await sql`INSERT INTO journal_trading (actif_propose, analyse_complete, statut) VALUES (${tickersBruts}, ${reponseIA}, 'EN_COURS')`;
+    } catch (e) { console.log("Erreur sauvegarde."); }
 
-    // 3. On affiche la réponse à l'utilisateur sur le site
     return NextResponse.json({ analyse: reponseIA });
 
   } catch (error) {
-    return NextResponse.json({ analyse: "Erreur du serveur IA : " + error.message });
+    return NextResponse.json({ analyse: "Erreur IA : " + error.message });
   }
 }
