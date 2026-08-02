@@ -1,31 +1,58 @@
-# Trader OS V1
+# World Monitor Trader OS — V1
 
-Couche de renseignement financier construite autour de World Monitor. Cette version est volontairement limitée au **paper trading**.
+Trader OS est une couche d'intelligence événementielle destinée à transformer des signaux de World Monitor en hypothèses de marché contrôlées.
 
-## Fonctionnalités présentes
+## État de la V1
 
-- adaptateur World Monitor avec clé optionnelle ;
-- normalisation des événements ;
-- scoring d'opportunité sur 100 ;
-- moteur de risque indépendant ;
-- seuil de risque par opération fixé à 0,5 % ;
-- limites journalière et hebdomadaire ;
-- API `POST /api/trader/analyse` ;
-- tableau de bord de démonstration ;
-- migration Supabase non destructive ;
-- aucun courtier connecté et aucune exécution réelle.
+- paper trading uniquement ;
+- aucun courtier connecté ;
+- risque maximal par proposition : 0,5 % du capital ;
+- score d'opportunité sur 100 ;
+- blocage en cas de perte quotidienne, perte hebdomadaire ou corrélation excessive ;
+- adaptateur World Monitor prêt à recevoir une clé API ;
+- migration Supabase fournie mais non exécutée automatiquement ;
+- build Next.js validé par GitHub Actions.
 
-## Lancer localement
+## Architecture
+
+```text
+World Monitor
+    ↓
+normalisation des événements
+    ↓
+scoring d'opportunité
+    ↓
+contrôle indépendant du risque
+    ↓
+paper trading
+    ↓
+validation humaine
+```
+
+## Variables d'environnement
+
+Copier `.env.example` vers `.env.local` et compléter uniquement les services utilisés.
+
+```bash
+TRADER_MODE=paper
+WORLD_MONITOR_BASE_URL=https://worldmonitor.app
+WORLD_MONITOR_API_KEY=
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+```
+
+`TRADER_MODE` doit rester sur `paper`. Toute autre valeur bloque le moteur.
+
+## Lancement local
 
 ```bash
 npm install
-cp .env.example .env.local
 npm run dev
 ```
 
-Ouvrir ensuite `http://localhost:3000` et utiliser **Tester le moteur V1**.
+Ouvrir ensuite `http://localhost:3000`.
 
-## Exemple d'appel
+## Test de l'API
 
 ```bash
 curl -X POST http://localhost:3000/api/trader/analyse \
@@ -54,16 +81,20 @@ curl -X POST http://localhost:3000/api/trader/analyse \
   }'
 ```
 
-## Prochaines étapes
+## Base de données
 
-1. confirmer les outils World Monitor disponibles avec la clé du compte ;
-2. implémenter un collecteur périodique et le dédoublonnage ;
-3. ajouter le graphe événement → pays → secteur → actif ;
-4. brancher Supabase après validation de la migration ;
-5. ajouter Telegram et les validations humaines ;
-6. construire le replay historique et le paper broker ;
-7. ne considérer le trading réel qu'après une période de validation mesurée.
+Le fichier `supabase/migrations/001_trader_os_v1.sql` prépare les tables de la V1. Il ne doit être appliqué à une base distante qu'après validation explicite.
 
-## Sécurité
+## Déploiement
 
-Le fichier `lib/trader/config.js` verrouille le mode sur `paper`. La V1 ne contient aucune fonction d'envoi d'ordre réel.
+Le code compile correctement. Le projet Vercel historique possède toutefois une ancienne intégration de stockage qui échoue avant le build (`Provisioning integration failed`). Cette ressource doit être déconnectée du projet Vercel ou le projet doit être recréé proprement sans l'ancienne intégration.
+
+## Étapes suivantes
+
+1. connecter réellement World Monitor ;
+2. enrichir le graphe événement → secteur → actif ;
+3. stocker événements et hypothèses dans Supabase ;
+4. ajouter le replay historique sans fuite de données futures ;
+5. connecter un fournisseur de données de marché fiable ;
+6. ajouter Telegram ;
+7. conserver l'exécution réelle désactivée jusqu'à validation statistique.
