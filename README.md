@@ -96,5 +96,4 @@ Le code compile correctement. Le projet Vercel historique possède toutefois une
 3. stocker événements et hypothèses dans Supabase ;
 4. ajouter le replay historique sans fuite de données futures ;
 5. connecter un fournisseur de données de marché fiable ;
-6. ajouter Telegram ;
-7. conserver l'exécution réelle désactivée jusqu'à validation statistique.
+6. conserver l'exécution réelle désactivée jusqu'à validation statistique.
