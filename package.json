@@ -1,17 +1,18 @@
 {
   "name": "ai-trader",
   "version": "1.0.0",
+  "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start"
   },
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "dependencies": {
-    "next": "latest",
-    "react": "latest",
-    "react-dom": "latest",
-    "groq-sdk": "latest",
-    "yahoo-finance2": "latest",
-    "@vercel/postgres": "latest"
+    "next": "16.2.12",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
   }
 }
